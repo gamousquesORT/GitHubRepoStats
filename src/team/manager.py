@@ -20,18 +20,19 @@ class TeamManager:
         """
         self.storage = TeamDataStorage(storage_path)
 
-    def load_from_csv(self, csv_path: str) -> None:
+    def load_from_csv(self, csv_path: str, delimiter: str = ',') -> None:
         """
         Load teams from CSV file and save to storage.
 
         Args:
             csv_path: Path to the CSV file
+            delimiter: CSV delimiter character (default: ',')
 
         Raises:
             FileNotFoundError: If CSV file doesn't exist
             ValueError: If CSV format is invalid
         """
-        parser = TeamCSVParser(csv_path)
+        parser = TeamCSVParser(csv_path, delimiter=delimiter)
         teams = parser.parse()
         self.storage.save_teams(teams)
 

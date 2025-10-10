@@ -201,7 +201,7 @@ class TestTeamDataStorage(unittest.TestCase):
             content = f.read()
 
         # Verify format: team_number|member1|member2|member3
-        expected = "1|12345, Juan Pérez|67890, María García|11223, Carlos López\n"
+        expected = "1|12345 Juan Pérez|67890 María García|11223 Carlos López\n"
         self.assertEqual(content, expected)
 
 

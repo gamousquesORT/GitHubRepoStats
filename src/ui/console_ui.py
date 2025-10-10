@@ -1,5 +1,6 @@
 """Console UI for interacting with team data."""
-from typing import Optional
+from typing import Optional, List
+from pathlib import Path
 from ..team import TeamManager
 
 
@@ -36,14 +37,64 @@ class ConsoleUI:
         choice = input("\nIngrese su opción: ").strip()
         return choice
 
+    def get_csv_files(self) -> List[Path]:
+        """Get list of CSV files in data directory."""
+        data_dir = Path("data")
+        if not data_dir.exists():
+            return []
+
+        csv_files = list(data_dir.glob("*.csv"))
+        return sorted(csv_files)
+
     def load_csv(self) -> None:
         """Handle CSV file loading."""
         print("\n--- Cargar archivo CSV ---")
-        csv_path = input("Ingrese la ruta del archivo CSV: ").strip()
+
+        # Get available CSV files
+        csv_files = self.get_csv_files()
+
+        if not csv_files:
+            print("\nNo se encontraron archivos CSV en la carpeta 'data'.")
+            print("Por favor, coloque archivos CSV en la carpeta 'data' e intente nuevamente.")
+            return
+
+        # Display available files
+        print("\nArchivos CSV disponibles:")
+        for i, file in enumerate(csv_files, 1):
+            print(f"{i}. {file.name}")
+
+        # Get user choice
+        choice = input(f"\nSeleccione un archivo (1-{len(csv_files)}): ").strip()
 
         try:
-            self.team_manager.load_from_csv(csv_path)
-            print(f"\n¡Éxito! Los datos se cargaron correctamente desde {csv_path}")
+            file_index = int(choice) - 1
+            if file_index < 0 or file_index >= len(csv_files):
+                print("\nOpción inválida.")
+                return
+
+            selected_file = csv_files[file_index]
+            csv_path = str(selected_file)
+        except ValueError:
+            print("\nOpción inválida. Debe ingresar un número.")
+            return
+
+        # Ask for delimiter
+        print("\n¿Qué separador utiliza el archivo CSV?")
+        print("1. Coma (,)")
+        print("2. Punto y coma (;)")
+        delimiter_choice = input("Ingrese su opción (1 o 2): ").strip()
+
+        if delimiter_choice == "1":
+            delimiter = ","
+        elif delimiter_choice == "2":
+            delimiter = ";"
+        else:
+            print("\nOpción inválida. Usando coma (,) por defecto.")
+            delimiter = ","
+
+        try:
+            self.team_manager.load_from_csv(csv_path, delimiter=delimiter)
+            print(f"\n¡Éxito! Los datos se cargaron correctamente desde {selected_file.name}")
         except FileNotFoundError:
             print(f"\nError: No se encontró el archivo '{csv_path}'")
         except ValueError as e:

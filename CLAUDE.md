@@ -35,7 +35,13 @@ This project uses environment variables stored in `.env` files (gitignored). Che
 
 ## Testing and Commits
 
-**Always run unit tests before committing.** Ensure all tests pass before creating commits.
+- **Unit Tests Required**: Every class must have comprehensive unit tests. Test files should be created in the `tests/` directory mirroring the source structure.
+- **Run Tests Before Committing**: Always run unit tests before committing. Ensure all tests pass before creating commits.
+- **Test Coverage**: Aim for comprehensive test coverage including:
+  - Happy path scenarios
+  - Edge cases and boundary conditions
+  - Error handling and exceptions
+  - Input validation
 
 ## Current Status
 

@@ -8,14 +8,16 @@ from .models import Team, Student
 class TeamCSVParser:
     """Parser for reading team data from CSV files."""
 
-    def __init__(self, csv_path: str) -> None:
+    def __init__(self, csv_path: str, delimiter: str = ',') -> None:
         """
         Initialize CSV parser.
 
         Args:
             csv_path: Path to the CSV file
+            delimiter: CSV delimiter character (default: ',')
         """
         self.csv_path = Path(csv_path)
+        self.delimiter = delimiter
 
     def parse(self) -> List[Team]:
         """
@@ -33,8 +35,8 @@ class TeamCSVParser:
 
         teams: List[Team] = []
 
-        with open(self.csv_path, 'r', encoding='utf-8') as csvfile:
-            reader = csv.reader(csvfile)
+        with open(self.csv_path, 'r', encoding='utf-8-sig') as csvfile:
+            reader = csv.reader(csvfile, delimiter=self.delimiter)
 
             # Skip header row
             header = next(reader, None)

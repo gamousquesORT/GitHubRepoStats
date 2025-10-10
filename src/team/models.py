@@ -12,7 +12,7 @@ class Student:
 
     def __str__(self) -> str:
         """Return string representation of student."""
-        return f"{self.student_id}, {self.name}"
+        return f"{self.student_id} {self.name}"
 
     @classmethod
     def from_csv_field(cls, field: str) -> Optional['Student']:
@@ -22,7 +22,7 @@ class Student:
         The field can contain:
         - A student number (numeric ID)
         - One or more name parts (first name, last names)
-        - Elements separated by commas in any order
+        - Elements separated by spaces
 
         The student number is identified as the first numeric-only element.
         All other elements are combined to form the full name.
@@ -40,8 +40,8 @@ class Student:
         if not field:
             return None
 
-        # Split by comma and clean up parts
-        parts = [part.strip() for part in field.split(',')]
+        # Split by whitespace and clean up parts
+        parts = field.split()
         parts = [part for part in parts if part]  # Remove empty parts
 
         if not parts:

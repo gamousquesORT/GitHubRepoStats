@@ -7,29 +7,29 @@ class TestStudent(unittest.TestCase):
     """Test cases for Student class."""
 
     def test_from_csv_field_standard_format(self):
-        """Test parsing student with standard format: ID, Name."""
-        student = Student.from_csv_field("12345, Juan Pérez")
+        """Test parsing student with standard format: ID Name."""
+        student = Student.from_csv_field("12345 Juan Pérez")
         self.assertIsNotNone(student)
         self.assertEqual(student.student_id, "12345")
         self.assertEqual(student.name, "Juan Pérez")
 
     def test_from_csv_field_reversed_format(self):
         """Test parsing student with name before ID."""
-        student = Student.from_csv_field("María, García, 67890")
+        student = Student.from_csv_field("María García 67890")
         self.assertIsNotNone(student)
         self.assertEqual(student.student_id, "67890")
         self.assertEqual(student.name, "María García")
 
     def test_from_csv_field_multiple_name_parts(self):
         """Test parsing student with multiple name parts."""
-        student = Student.from_csv_field("11223, Carlos, Antonio, López, Martínez")
+        student = Student.from_csv_field("11223 Carlos Antonio López Martínez")
         self.assertIsNotNone(student)
         self.assertEqual(student.student_id, "11223")
         self.assertEqual(student.name, "Carlos Antonio López Martínez")
 
     def test_from_csv_field_id_in_middle(self):
         """Test parsing student with ID in the middle."""
-        student = Student.from_csv_field("Ana, 44556, Martínez")
+        student = Student.from_csv_field("Ana 44556 Martínez")
         self.assertIsNotNone(student)
         self.assertEqual(student.student_id, "44556")
         self.assertEqual(student.name, "Ana Martínez")
@@ -57,7 +57,7 @@ class TestStudent(unittest.TestCase):
     def test_str_representation(self):
         """Test string representation of student."""
         student = Student(student_id="12345", name="Juan Pérez")
-        self.assertEqual(str(student), "12345, Juan Pérez")
+        self.assertEqual(str(student), "12345 Juan Pérez")
 
 
 class TestTeam(unittest.TestCase):
@@ -97,11 +97,11 @@ class TestTeam(unittest.TestCase):
         team = Team("1", s1, s2, None)
 
         result = team.to_file_format()
-        self.assertEqual(result, "1|1, Alice|2, Bob|")
+        self.assertEqual(result, "1|1 Alice|2 Bob|")
 
     def test_from_file_format(self):
         """Test parsing team from file format."""
-        line = "1|12345, Juan Pérez|67890, María García|"
+        line = "1|12345 Juan Pérez|67890 María García|"
         team = Team.from_file_format(line)
 
         self.assertEqual(team.team_number, "1")

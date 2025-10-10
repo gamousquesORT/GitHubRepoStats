@@ -1,3 +1,6 @@
 # Python requirements for GitHubTracker
 # No external dependencies required for basic CSV parsing
 # Standard library modules used: csv, typing, pathlib
+
+# Testing dependencies
+pytest>=8.0.0
