@@ -2,19 +2,27 @@
 from typing import Optional, List
 from pathlib import Path
 from ..team import TeamManager
+from ..github.repository_client import GitHubRepositoryClient
+from ..reports.team_report_generator import TeamReportGenerator
 
 
 class ConsoleUI:
     """Console-based user interface for team management."""
 
-    def __init__(self, team_manager: TeamManager) -> None:
+    def __init__(self, team_manager: TeamManager, github_client: Optional[GitHubRepositoryClient] = None) -> None:
         """
         Initialize console UI.
 
         Args:
             team_manager: TeamManager instance
+            github_client: Optional GitHubRepositoryClient instance for repository operations
         """
         self.team_manager = team_manager
+        self.github_client = github_client
+        self.report_generator: Optional[TeamReportGenerator] = None
+
+        if self.github_client:
+            self.report_generator = TeamReportGenerator(self.team_manager, self.github_client)
 
     def show_menu(self) -> None:
         """Display the main menu."""
@@ -24,7 +32,8 @@ class ConsoleUI:
         print("1. Comenzar la lectura (Load CSV file)")
         print("2. Listar los datos de los equipos (List all teams)")
         print("3. Buscar equipo por número (Search team by number)")
-        print("4. Terminar (Exit)")
+        print("4. Ver comentarios de commits por equipo (View team commit comments)")
+        print("5. Terminar (Exit)")
         print("=" * 50)
 
     def get_user_choice(self) -> str:
@@ -144,6 +153,58 @@ class ConsoleUI:
         except Exception as e:
             print(f"\nError al buscar equipo: {e}")
 
+    def display_team_reports(self) -> None:
+        """Display commit comments for each team's repository."""
+        print("\n--- Comentarios de Commits por Equipo ---")
+
+        if not self.team_manager.has_data():
+            print("No hay datos cargados. Por favor, primero cargue un archivo CSV.")
+            return
+
+        if not self.report_generator:
+            print("\nError: No se configuró el cliente de GitHub.")
+            print("Esta funcionalidad requiere configuración de GitHub.")
+            return
+
+        try:
+            print("\nGenerando reportes para todos los equipos...")
+            print("Esto puede tomar algunos momentos...\n")
+
+            reports = self.report_generator.generate_reports()
+
+            for report in reports:
+                print("=" * 70)
+                print(f"EQUIPO: {report.team.team_number}")
+                print(f"Integrantes: {', '.join([m.name for m in report.team.get_members()])}")
+                print(f"IDs: {', '.join([m.student_id for m in report.team.get_members()])}")
+                print("-" * 70)
+
+                if report.found and report.repository_name:
+                    print(f"Repositorio encontrado: {report.repository_name}")
+                    print(f"\nCantidad de commits: {len(report.commit_messages)}")
+                    print("\nMensajes de commits:")
+                    print("-" * 70)
+
+                    if report.commit_messages:
+                        for i, message in enumerate(report.commit_messages, 1):
+                            # Display each commit message
+                            print(f"\n{i}. {message}")
+                    else:
+                        print("No se encontraron commits en este repositorio.")
+                else:
+                    print("No se encontró un repositorio para este equipo.")
+                    print("Verifique que el repositorio contenga los IDs de todos los miembros.")
+
+                print("\n" + "=" * 70)
+
+                # Wait for user to press Enter before showing next team
+                input("\nPresione Enter para continuar con el siguiente equipo...")
+
+            print(f"\n¡Proceso completado! Se procesaron {len(reports)} equipos.")
+
+        except Exception as e:
+            print(f"\nError al generar reportes: {e}")
+
     def run(self) -> None:
         """Run the main console UI loop."""
         print("\n¡Bienvenido a GitHubTracker!")
@@ -159,7 +220,9 @@ class ConsoleUI:
             elif choice == "3":
                 self.search_team()
             elif choice == "4":
+                self.display_team_reports()
+            elif choice == "5":
                 print("\n¡Gracias por usar GitHubTracker! ¡Hasta pronto!")
                 break
             else:
-                print("\nOpción inválida. Por favor, elija una opción del 1 al 4.")
+                print("\nOpción inválida. Por favor, elija una opción del 1 al 5.")
