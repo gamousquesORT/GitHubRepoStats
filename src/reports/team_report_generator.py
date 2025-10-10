@@ -14,6 +14,7 @@ class TeamRepositoryReport:
     repository_name: Optional[str]
     commit_messages: list[str]
     found: bool
+    commits_with_authors: Optional[list[tuple[str, str, Optional[str]]]] = None  # (message, author_name, author_username)
 
 
 class TeamReportGenerator:
@@ -107,23 +108,26 @@ class TeamReportGenerator:
                 found=False
             )
 
-        # Get all commit messages from the repository
+        # Get all commit messages with author information from the repository
         try:
-            commit_messages = self.github_client.get_all_commit_messages(team_repo.name)
+            commits_with_authors = self.github_client.get_all_commits_with_authors(team_repo.name)
+            commit_messages = [message for message, _, _ in commits_with_authors]
         except ValueError:
             # If getting commits fails, return report with empty messages
             return TeamRepositoryReport(
                 team=team,
                 repository_name=team_repo.name,
                 commit_messages=[],
-                found=True
+                found=True,
+                commits_with_authors=None
             )
 
         return TeamRepositoryReport(
             team=team,
             repository_name=team_repo.name,
             commit_messages=commit_messages,
-            found=True
+            found=True,
+            commits_with_authors=commits_with_authors
         )
 
     def _generate_team_report(self, team: Team) -> TeamRepositoryReport:

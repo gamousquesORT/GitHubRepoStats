@@ -185,9 +185,16 @@ class ConsoleUI:
                     print("\nMensajes de commits:")
                     print("-" * 70)
 
-                    if report.commit_messages:
+                    if report.commits_with_authors:
+                        for i, (message, author_name, author_username) in enumerate(report.commits_with_authors, 1):
+                            # Display commit message with author
+                            author_display = f"{author_name}"
+                            if author_username:
+                                author_display += f" (@{author_username})"
+                            print(f"\n{i}. [{author_display}] {message}")
+                    elif report.commit_messages:
                         for i, message in enumerate(report.commit_messages, 1):
-                            # Display each commit message
+                            # Fallback: display without author info
                             print(f"\n{i}. {message}")
                     else:
                         print("No se encontraron commits en este repositorio.")

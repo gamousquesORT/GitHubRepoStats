@@ -210,16 +210,17 @@ class GitHubRepositoryClient:
 
         return all_branches
 
-    def get_commit_messages_from_branches(self, repo_name: str, branch_names: list[str]) -> list[str]:
+    def get_commit_messages_from_branches(self, repo_name: str, branch_names: list[str]) -> list[tuple[str, str, Optional[str]]]:
         """
-        Get all commit messages from specified branches in a repository.
+        Get all commit messages with author info from specified branches in a repository.
 
         Args:
             repo_name: Repository name
             branch_names: List of branch names to get commits from
 
         Returns:
-            List of commit message strings (duplicates across branches are removed)
+            List of tuples (message, author_name, author_username) from all commits
+            (duplicates across branches are removed)
 
         Raises:
             ValueError: If organization name is not configured or API request fails
@@ -227,7 +228,7 @@ class GitHubRepositoryClient:
         if not self.org_name:
             raise ValueError("Organization name not configured. Set GITHUB_ORG environment variable or pass org_name to constructor.")
 
-        all_commit_messages: list[str] = []
+        all_commit_messages: list[tuple[str, str, Optional[str]]] = []
         seen_commit_shas: set[str] = set()
 
         for branch_name in branch_names:
@@ -248,13 +249,16 @@ class GitHubRepositoryClient:
                     if not commits_data:
                         break
 
-                    # Extract commit messages, avoiding duplicates
+                    # Extract commit messages with author info, avoiding duplicates
                     for commit in commits_data:
                         commit_sha = commit["sha"]
                         if commit_sha not in seen_commit_shas:
                             seen_commit_shas.add(commit_sha)
                             commit_message = commit["commit"]["message"]
-                            all_commit_messages.append(commit_message)
+                            author_name = commit["commit"]["author"]["name"]
+                            author_username = commit.get("author", {}).get("login") if commit.get("author") else None
+                            # Store as tuple: (message, author_name, author_username)
+                            all_commit_messages.append((commit_message, author_name, author_username))
 
                     page += 1
 
@@ -283,5 +287,27 @@ class GitHubRepositoryClient:
         # Get all branches
         branch_names = self.get_all_branches(repo_name)
 
-        # Get commit messages from all branches
+        # Get commit messages with author info from all branches
+        commits_with_authors = self.get_commit_messages_from_branches(repo_name, branch_names)
+
+        # Return only messages for backwards compatibility
+        return [message for message, _, _ in commits_with_authors]
+
+    def get_all_commits_with_authors(self, repo_name: str) -> list[tuple[str, str, Optional[str]]]:
+        """
+        Get all commit messages with author information from all branches in a repository.
+
+        Args:
+            repo_name: Repository name
+
+        Returns:
+            List of tuples (message, author_name, author_username) from all commits across all branches
+
+        Raises:
+            ValueError: If organization name is not configured or repository is not found or API request fails
+        """
+        # Get all branches
+        branch_names = self.get_all_branches(repo_name)
+
+        # Get commit messages with author info from all branches
         return self.get_commit_messages_from_branches(repo_name, branch_names)
