@@ -9,12 +9,12 @@ class TestGitHubRepositoryClient:
     def test_get_repository_returns_repository_data(self):
         """Test getting repository data returns RepositoryData object with correct fields."""
         # Arrange
-        client = GitHubRepositoryClient()
         org_name = "python"
+        client = GitHubRepositoryClient(org_name=org_name)
         repo_name = "cpython"
 
         # Act
-        result = client.get_repository(org_name, repo_name)
+        result = client.get_repository(repo_name)
 
         # Assert
         assert isinstance(result, RepositoryData)
@@ -30,13 +30,13 @@ class TestGitHubRepositoryClient:
     def test_get_repository_with_invalid_repo_raises_error(self):
         """Test getting non-existent repository raises ValueError."""
         # Arrange
-        client = GitHubRepositoryClient()
         org_name = "nonexistent-org-12345"
+        client = GitHubRepositoryClient(org_name=org_name)
         repo_name = "nonexistent-repo-12345"
 
         # Act & Assert
         with pytest.raises(ValueError, match="Repository not found"):
-            client.get_repository(org_name, repo_name)
+            client.get_repository(repo_name)
 
     def test_search_repositories_by_name_returns_matching_repos(self):
         """Test searching repositories in organization by name fragment."""
@@ -91,3 +91,32 @@ class TestGitHubRepositoryClient:
                 os.environ["GITHUB_ORG"] = original_org
             else:
                 os.environ.pop("GITHUB_ORG", None)
+
+    def test_get_all_commit_messages_returns_list_of_commit_messages(self):
+        """Test getting all commit messages from all branches returns a list of commit message strings."""
+        # Arrange
+        org_name = "octocat"
+        client = GitHubRepositoryClient(org_name=org_name)
+        repo_name = "Hello-World"
+
+        # Act
+        result = client.get_all_commit_messages(repo_name)
+
+        # Assert
+        assert isinstance(result, list)
+        assert len(result) > 0
+        # All items should be strings (commit messages)
+        for message in result:
+            assert isinstance(message, str)
+            assert len(message) > 0
+
+    def test_get_all_commit_messages_with_invalid_repo_raises_error(self):
+        """Test getting commit messages from non-existent repository raises ValueError."""
+        # Arrange
+        org_name = "nonexistent-org-12345"
+        client = GitHubRepositoryClient(org_name=org_name)
+        repo_name = "nonexistent-repo-12345"
+
+        # Act & Assert
+        with pytest.raises(ValueError, match="Repository not found"):
+            client.get_all_commit_messages(repo_name)

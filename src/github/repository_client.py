@@ -45,28 +45,30 @@ class GitHubRepositoryClient:
         if self.token:
             self.session.headers.update({"Authorization": f"Bearer {self.token}"})
 
-    def get_repository(self, org_name: str, repo_name: str) -> RepositoryData:
+    def get_repository(self, repo_name: str) -> RepositoryData:
         """
         Get repository data from GitHub API.
 
         Args:
-            org_name: Organization name
             repo_name: Repository name
 
         Returns:
             RepositoryData object with repository information
 
         Raises:
-            ValueError: If repository is not found or API request fails
+            ValueError: If organization name is not configured or repository is not found or API request fails
         """
-        url = f"{self.base_url}/repos/{org_name}/{repo_name}"
+        if not self.org_name:
+            raise ValueError("Organization name not configured. Set GITHUB_ORG environment variable or pass org_name to constructor.")
+
+        url = f"{self.base_url}/repos/{self.org_name}/{repo_name}"
 
         try:
             response = self.session.get(url)
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
-                raise ValueError(f"Repository not found: {org_name}/{repo_name}")
+                raise ValueError(f"Repository not found: {self.org_name}/{repo_name}")
             raise ValueError(f"GitHub API error: {e}")
         except requests.exceptions.RequestException as e:
             raise ValueError(f"Failed to connect to GitHub API: {e}")
@@ -138,3 +140,128 @@ class GitHubRepositoryClient:
             raise ValueError(f"Failed to connect to GitHub API: {e}")
 
         return all_repos
+
+    def get_all_branches(self, repo_name: str) -> list[str]:
+        """
+        Get all branch names from a repository.
+
+        Args:
+            repo_name: Repository name
+
+        Returns:
+            List of branch name strings
+
+        Raises:
+            ValueError: If organization name is not configured or repository is not found or API request fails
+        """
+        if not self.org_name:
+            raise ValueError("Organization name not configured. Set GITHUB_ORG environment variable or pass org_name to constructor.")
+
+        branches_url = f"{self.base_url}/repos/{self.org_name}/{repo_name}/branches"
+
+        try:
+            # Get all branches (with pagination support)
+            all_branches = []
+            page = 1
+            per_page = 100
+
+            while True:
+                params = {"page": page, "per_page": per_page}
+                response = self.session.get(branches_url, params=params)
+                response.raise_for_status()
+
+                branches_data = response.json()
+
+                if not branches_data:
+                    break
+
+                # Extract branch names
+                for branch in branches_data:
+                    all_branches.append(branch["name"])
+
+                page += 1
+
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                raise ValueError(f"Repository not found: {self.org_name}/{repo_name}")
+            raise ValueError(f"GitHub API error: {e}")
+        except requests.exceptions.RequestException as e:
+            raise ValueError(f"Failed to connect to GitHub API: {e}")
+
+        return all_branches
+
+    def get_commit_messages_from_branches(self, repo_name: str, branch_names: list[str]) -> list[str]:
+        """
+        Get all commit messages from specified branches in a repository.
+
+        Args:
+            repo_name: Repository name
+            branch_names: List of branch names to get commits from
+
+        Returns:
+            List of commit message strings (duplicates across branches are removed)
+
+        Raises:
+            ValueError: If organization name is not configured or API request fails
+        """
+        if not self.org_name:
+            raise ValueError("Organization name not configured. Set GITHUB_ORG environment variable or pass org_name to constructor.")
+
+        all_commit_messages: list[str] = []
+        seen_commit_shas: set[str] = set()
+
+        for branch_name in branch_names:
+            commits_url = f"{self.base_url}/repos/{self.org_name}/{repo_name}/commits"
+
+            try:
+                # Get commits for this branch (with pagination)
+                page = 1
+                per_page = 100
+
+                while True:
+                    params = {"sha": branch_name, "page": page, "per_page": per_page}
+                    response = self.session.get(commits_url, params=params)
+                    response.raise_for_status()
+
+                    commits_data = response.json()
+
+                    if not commits_data:
+                        break
+
+                    # Extract commit messages, avoiding duplicates
+                    for commit in commits_data:
+                        commit_sha = commit["sha"]
+                        if commit_sha not in seen_commit_shas:
+                            seen_commit_shas.add(commit_sha)
+                            commit_message = commit["commit"]["message"]
+                            all_commit_messages.append(commit_message)
+
+                    page += 1
+
+            except requests.exceptions.HTTPError as e:
+                # Continue to next branch if this one fails
+                continue
+            except requests.exceptions.RequestException as e:
+                # Continue to next branch if this one fails
+                continue
+
+        return all_commit_messages
+
+    def get_all_commit_messages(self, repo_name: str) -> list[str]:
+        """
+        Get all commit messages from all branches in a repository.
+
+        Args:
+            repo_name: Repository name
+
+        Returns:
+            List of commit message strings from all commits across all branches
+
+        Raises:
+            ValueError: If organization name is not configured or repository is not found or API request fails
+        """
+        # Get all branches
+        branch_names = self.get_all_branches(repo_name)
+
+        # Get commit messages from all branches
+        return self.get_commit_messages_from_branches(repo_name, branch_names)
