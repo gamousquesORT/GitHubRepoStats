@@ -120,3 +120,70 @@ class TestGitHubRepositoryClient:
         # Act & Assert
         with pytest.raises(ValueError, match="Repository not found"):
             client.get_all_commit_messages(repo_name)
+
+    def test_get_all_org_repositories_returns_list_of_repositories(self):
+        """Test getting all repositories from organization returns list of RepositoryData."""
+        # Arrange
+        org_name = "python"
+        client = GitHubRepositoryClient(org_name=org_name)
+
+        # Act
+        result = client.get_all_org_repositories()
+
+        # Assert
+        assert isinstance(result, list)
+        assert len(result) > 0
+        for repo in result:
+            assert isinstance(repo, RepositoryData)
+            assert repo.name is not None
+            assert repo.full_name is not None
+
+    def test_get_all_org_repositories_without_org_raises_error(self):
+        """Test getting all repositories without organization configured raises ValueError."""
+        # Arrange
+        import os
+        original_org = os.environ.get("GITHUB_ORG")
+
+        try:
+            # Clear the GITHUB_ORG environment variable
+            if "GITHUB_ORG" in os.environ:
+                del os.environ["GITHUB_ORG"]
+
+            client = GitHubRepositoryClient()  # No org_name set
+
+            # Act & Assert
+            with pytest.raises(ValueError, match="Organization name not configured"):
+                client.get_all_org_repositories()
+        finally:
+            # Restore original environment variable
+            if original_org:
+                os.environ["GITHUB_ORG"] = original_org
+
+    def test_get_all_org_repositories_with_team_filter(self):
+        """Test getting all repositories filtered by teams only returns matching repos."""
+        # Arrange
+        from src.team.models import Team, Student
+
+        org_name = "python"
+        client = GitHubRepositoryClient(org_name=org_name)
+
+        # Create a mock team with student IDs that likely won't match any repo
+        # This tests the filtering logic without relying on specific repo names
+        teams = [
+            Team(
+                team_number="1",
+                member1=Student(student_id="cpython", name="Test User"),
+                member2=None,
+                member3=None
+            )
+        ]
+
+        # Act
+        result = client.get_all_org_repositories(filter_by_teams=teams)
+
+        # Assert
+        assert isinstance(result, list)
+        # All returned repos should contain "cpython" in their name
+        for repo in result:
+            assert isinstance(repo, RepositoryData)
+            assert "cpython" in repo.name.lower()

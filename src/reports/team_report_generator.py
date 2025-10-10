@@ -14,6 +14,7 @@ class TeamRepositoryReport:
     repository_name: Optional[str]
     commit_messages: list[str]
     found: bool
+    commits_with_authors: Optional[list[tuple[str, str, Optional[str]]]] = None  # (message, author_name, author_username)
 
 
 class TeamReportGenerator:
@@ -39,11 +40,14 @@ class TeamReportGenerator:
         """
         Generate reports for all teams.
 
+        Optimized version that:
+        1. Gets all teams first
+        2. Fetches repositories filtered by teams (reduces memory usage significantly)
+        3. Processes each team using the filtered repository list
+
         For each team:
-        1. Gets the first student ID from the team
-        2. Searches for repositories containing that student ID
-        3. Checks if repository name contains all other team member IDs
-        4. Gets all commit messages from the matching repository
+        1. Finds repository that contains all team member IDs
+        2. Gets all commit messages from the matching repository
 
         Returns:
             List of TeamRepositoryReport objects, one per team
@@ -51,13 +55,87 @@ class TeamReportGenerator:
         Raises:
             ValueError: If organization name is not configured in github_client
         """
-        reports: list[TeamRepositoryReport] = []
+        # Get all teams first for filtering
+        all_teams = list(self.team_manager.iter_teams())
 
-        for team in self.team_manager.iter_teams():
-            report = self._generate_team_report(team)
+        # Fetch repositories filtered by teams (this significantly reduces memory usage)
+        try:
+            all_repositories = self.github_client.get_all_org_repositories(
+                filter_by_teams=all_teams
+            )
+        except ValueError:
+            # If fetching repos fails, return empty reports for all teams
+            return [
+                TeamRepositoryReport(
+                    team=team,
+                    repository_name=None,
+                    commit_messages=[],
+                    found=False
+                )
+                for team in all_teams
+            ]
+
+        # Generate reports for each team using the filtered repository list
+        reports: list[TeamRepositoryReport] = []
+        for team in all_teams:
+            report = self._generate_team_report_from_cache(team, all_repositories)
             reports.append(report)
 
         return reports
+
+    def _generate_team_report_from_cache(self, team: Team, all_repositories: list[RepositoryData]) -> TeamRepositoryReport:
+        """
+        Generate report for a single team using pre-fetched repository list.
+
+        Args:
+            team: Team object to generate report for
+            all_repositories: Pre-fetched list of all organization repositories
+
+        Returns:
+            TeamRepositoryReport with repository and commit information
+        """
+        members = team.get_members()
+
+        if not members:
+            return TeamRepositoryReport(
+                team=team,
+                repository_name=None,
+                commit_messages=[],
+                found=False
+            )
+
+        # Find repository that contains all team member IDs
+        team_repo = self._find_team_repository(team, all_repositories)
+
+        if not team_repo:
+            return TeamRepositoryReport(
+                team=team,
+                repository_name=None,
+                commit_messages=[],
+                found=False
+            )
+
+        # Get all commit messages with author information from the repository
+        try:
+            commits_with_authors = self.github_client.get_all_commits_with_authors(team_repo.name)
+            commit_messages = [message for message, _, _ in commits_with_authors]
+        except ValueError:
+            # If getting commits fails, return report with empty messages
+            return TeamRepositoryReport(
+                team=team,
+                repository_name=team_repo.name,
+                commit_messages=[],
+                found=True,
+                commits_with_authors=None
+            )
+
+        return TeamRepositoryReport(
+            team=team,
+            repository_name=team_repo.name,
+            commit_messages=commit_messages,
+            found=True,
+            commits_with_authors=commits_with_authors
+        )
 
     def _generate_team_report(self, team: Team) -> TeamRepositoryReport:
         """

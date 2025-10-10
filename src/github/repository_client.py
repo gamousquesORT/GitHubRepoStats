@@ -84,21 +84,31 @@ class GitHubRepositoryClient:
             url=data["html_url"]
         )
 
-    def search_repositories_by_name(self, search_term: str) -> list[RepositoryData]:
+    def get_all_org_repositories(self, filter_by_teams: Optional[list] = None) -> list[RepositoryData]:
         """
-        Search for repositories in the organization that contain the search term in their name.
+        Get all repositories from the organization.
 
         Args:
-            search_term: The term to search for in repository names (case insensitive)
+            filter_by_teams: Optional list of Team objects to filter repositories.
+                           If provided, only returns repositories that match team member student IDs.
+                           This significantly reduces memory usage when dealing with large organizations.
 
         Returns:
-            List of RepositoryData objects for repositories matching the search term
+            List of all RepositoryData objects from the organization (filtered if teams provided)
 
         Raises:
             ValueError: If organization name is not configured or API request fails
         """
         if not self.org_name:
             raise ValueError("Organization name not configured. Set GITHUB_ORG environment variable or pass org_name to constructor.")
+
+        # Prepare team student IDs for efficient filtering
+        teams_student_ids: Optional[list[list[str]]] = None
+        if filter_by_teams:
+            teams_student_ids = [
+                [member.student_id for member in team.get_members()]
+                for team in filter_by_teams
+            ]
 
         url = f"{self.base_url}/orgs/{self.org_name}/repos"
 
@@ -118,17 +128,27 @@ class GitHubRepositoryClient:
                 if not repos_data:
                     break
 
-                # Filter repositories by search term
+                # Convert repositories to RepositoryData objects (with optional filtering)
                 for repo in repos_data:
-                    if search_term.lower() in repo["name"].lower():
-                        all_repos.append(RepositoryData(
-                            name=repo["name"],
-                            full_name=repo["full_name"],
-                            description=repo.get("description"),
-                            stars=repo["stargazers_count"],
-                            forks=repo["forks_count"],
-                            url=repo["html_url"]
-                        ))
+                    # If filtering by teams, check if this repo matches any team
+                    if teams_student_ids:
+                        matches = False
+                        for team_ids in teams_student_ids:
+                            if all(student_id in repo["name"] for student_id in team_ids):
+                                matches = True
+                                break
+
+                        if not matches:
+                            continue  # Skip this repo, doesn't match any team
+
+                    all_repos.append(RepositoryData(
+                        name=repo["name"],
+                        full_name=repo["full_name"],
+                        description=repo.get("description"),
+                        stars=repo["stargazers_count"],
+                        forks=repo["forks_count"],
+                        url=repo["html_url"]
+                    ))
 
                 page += 1
 
@@ -140,6 +160,30 @@ class GitHubRepositoryClient:
             raise ValueError(f"Failed to connect to GitHub API: {e}")
 
         return all_repos
+
+    def search_repositories_by_name(self, search_term: str) -> list[RepositoryData]:
+        """
+        Search for repositories in the organization that contain the search term in their name.
+
+        Args:
+            search_term: The term to search for in repository names (case insensitive)
+
+        Returns:
+            List of RepositoryData objects for repositories matching the search term
+
+        Raises:
+            ValueError: If organization name is not configured or API request fails
+        """
+        # Use get_all_org_repositories and filter
+        all_repos = self.get_all_org_repositories()
+
+        # Filter repositories by search term
+        filtered_repos = [
+            repo for repo in all_repos
+            if search_term.lower() in repo.name.lower()
+        ]
+
+        return filtered_repos
 
     def get_all_branches(self, repo_name: str) -> list[str]:
         """
@@ -190,16 +234,17 @@ class GitHubRepositoryClient:
 
         return all_branches
 
-    def get_commit_messages_from_branches(self, repo_name: str, branch_names: list[str]) -> list[str]:
+    def get_commit_messages_from_branches(self, repo_name: str, branch_names: list[str]) -> list[tuple[str, str, Optional[str]]]:
         """
-        Get all commit messages from specified branches in a repository.
+        Get all commit messages with author info from specified branches in a repository.
 
         Args:
             repo_name: Repository name
             branch_names: List of branch names to get commits from
 
         Returns:
-            List of commit message strings (duplicates across branches are removed)
+            List of tuples (message, author_name, author_username) from all commits
+            (duplicates across branches are removed)
 
         Raises:
             ValueError: If organization name is not configured or API request fails
@@ -207,7 +252,7 @@ class GitHubRepositoryClient:
         if not self.org_name:
             raise ValueError("Organization name not configured. Set GITHUB_ORG environment variable or pass org_name to constructor.")
 
-        all_commit_messages: list[str] = []
+        all_commit_messages: list[tuple[str, str, Optional[str]]] = []
         seen_commit_shas: set[str] = set()
 
         for branch_name in branch_names:
@@ -228,13 +273,16 @@ class GitHubRepositoryClient:
                     if not commits_data:
                         break
 
-                    # Extract commit messages, avoiding duplicates
+                    # Extract commit messages with author info, avoiding duplicates
                     for commit in commits_data:
                         commit_sha = commit["sha"]
                         if commit_sha not in seen_commit_shas:
                             seen_commit_shas.add(commit_sha)
                             commit_message = commit["commit"]["message"]
-                            all_commit_messages.append(commit_message)
+                            author_name = commit["commit"]["author"]["name"]
+                            author_username = commit.get("author", {}).get("login") if commit.get("author") else None
+                            # Store as tuple: (message, author_name, author_username)
+                            all_commit_messages.append((commit_message, author_name, author_username))
 
                     page += 1
 
@@ -263,5 +311,27 @@ class GitHubRepositoryClient:
         # Get all branches
         branch_names = self.get_all_branches(repo_name)
 
-        # Get commit messages from all branches
+        # Get commit messages with author info from all branches
+        commits_with_authors = self.get_commit_messages_from_branches(repo_name, branch_names)
+
+        # Return only messages for backwards compatibility
+        return [message for message, _, _ in commits_with_authors]
+
+    def get_all_commits_with_authors(self, repo_name: str) -> list[tuple[str, str, Optional[str]]]:
+        """
+        Get all commit messages with author information from all branches in a repository.
+
+        Args:
+            repo_name: Repository name
+
+        Returns:
+            List of tuples (message, author_name, author_username) from all commits across all branches
+
+        Raises:
+            ValueError: If organization name is not configured or repository is not found or API request fails
+        """
+        # Get all branches
+        branch_names = self.get_all_branches(repo_name)
+
+        # Get commit messages with author info from all branches
         return self.get_commit_messages_from_branches(repo_name, branch_names)
