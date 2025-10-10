@@ -158,3 +158,32 @@ class TestGitHubRepositoryClient:
             # Restore original environment variable
             if original_org:
                 os.environ["GITHUB_ORG"] = original_org
+
+    def test_get_all_org_repositories_with_team_filter(self):
+        """Test getting all repositories filtered by teams only returns matching repos."""
+        # Arrange
+        from src.team.models import Team, Student
+
+        org_name = "python"
+        client = GitHubRepositoryClient(org_name=org_name)
+
+        # Create a mock team with student IDs that likely won't match any repo
+        # This tests the filtering logic without relying on specific repo names
+        teams = [
+            Team(
+                team_number="1",
+                member1=Student(student_id="cpython", name="Test User"),
+                member2=None,
+                member3=None
+            )
+        ]
+
+        # Act
+        result = client.get_all_org_repositories(filter_by_teams=teams)
+
+        # Assert
+        assert isinstance(result, list)
+        # All returned repos should contain "cpython" in their name
+        for repo in result:
+            assert isinstance(repo, RepositoryData)
+            assert "cpython" in repo.name.lower()

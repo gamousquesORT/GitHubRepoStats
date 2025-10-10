@@ -40,8 +40,10 @@ class TeamReportGenerator:
         """
         Generate reports for all teams.
 
-        Optimized version that fetches all repositories once at the beginning,
-        then processes each team using the cached repository list.
+        Optimized version that:
+        1. Gets all teams first
+        2. Fetches repositories filtered by teams (reduces memory usage significantly)
+        3. Processes each team using the filtered repository list
 
         For each team:
         1. Finds repository that contains all team member IDs
@@ -53,9 +55,14 @@ class TeamReportGenerator:
         Raises:
             ValueError: If organization name is not configured in github_client
         """
-        # Fetch all repositories from the organization once
+        # Get all teams first for filtering
+        all_teams = list(self.team_manager.iter_teams())
+
+        # Fetch repositories filtered by teams (this significantly reduces memory usage)
         try:
-            all_repositories = self.github_client.get_all_org_repositories()
+            all_repositories = self.github_client.get_all_org_repositories(
+                filter_by_teams=all_teams
+            )
         except ValueError:
             # If fetching repos fails, return empty reports for all teams
             return [
@@ -65,12 +72,12 @@ class TeamReportGenerator:
                     commit_messages=[],
                     found=False
                 )
-                for team in self.team_manager.iter_teams()
+                for team in all_teams
             ]
 
-        # Generate reports for each team using the cached repository list
+        # Generate reports for each team using the filtered repository list
         reports: list[TeamRepositoryReport] = []
-        for team in self.team_manager.iter_teams():
+        for team in all_teams:
             report = self._generate_team_report_from_cache(team, all_repositories)
             reports.append(report)
 

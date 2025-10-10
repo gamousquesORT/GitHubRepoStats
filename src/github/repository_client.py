@@ -84,18 +84,31 @@ class GitHubRepositoryClient:
             url=data["html_url"]
         )
 
-    def get_all_org_repositories(self) -> list[RepositoryData]:
+    def get_all_org_repositories(self, filter_by_teams: Optional[list] = None) -> list[RepositoryData]:
         """
         Get all repositories from the organization.
 
+        Args:
+            filter_by_teams: Optional list of Team objects to filter repositories.
+                           If provided, only returns repositories that match team member student IDs.
+                           This significantly reduces memory usage when dealing with large organizations.
+
         Returns:
-            List of all RepositoryData objects from the organization
+            List of all RepositoryData objects from the organization (filtered if teams provided)
 
         Raises:
             ValueError: If organization name is not configured or API request fails
         """
         if not self.org_name:
             raise ValueError("Organization name not configured. Set GITHUB_ORG environment variable or pass org_name to constructor.")
+
+        # Prepare team student IDs for efficient filtering
+        teams_student_ids: Optional[list[list[str]]] = None
+        if filter_by_teams:
+            teams_student_ids = [
+                [member.student_id for member in team.get_members()]
+                for team in filter_by_teams
+            ]
 
         url = f"{self.base_url}/orgs/{self.org_name}/repos"
 
@@ -115,8 +128,19 @@ class GitHubRepositoryClient:
                 if not repos_data:
                     break
 
-                # Convert all repositories to RepositoryData objects
+                # Convert repositories to RepositoryData objects (with optional filtering)
                 for repo in repos_data:
+                    # If filtering by teams, check if this repo matches any team
+                    if teams_student_ids:
+                        matches = False
+                        for team_ids in teams_student_ids:
+                            if all(student_id in repo["name"] for student_id in team_ids):
+                                matches = True
+                                break
+
+                        if not matches:
+                            continue  # Skip this repo, doesn't match any team
+
                     all_repos.append(RepositoryData(
                         name=repo["name"],
                         full_name=repo["full_name"],
