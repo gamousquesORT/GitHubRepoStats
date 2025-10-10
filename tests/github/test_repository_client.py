@@ -37,3 +37,57 @@ class TestGitHubRepositoryClient:
         # Act & Assert
         with pytest.raises(ValueError, match="Repository not found"):
             client.get_repository(org_name, repo_name)
+
+    def test_search_repositories_by_name_returns_matching_repos(self):
+        """Test searching repositories in organization by name fragment."""
+        # Arrange
+        client = GitHubRepositoryClient(org_name="python")
+        search_term = "python"
+
+        # Act
+        results = client.search_repositories_by_name(search_term)
+
+        # Assert
+        assert isinstance(results, list)
+        assert len(results) > 0
+        # All results should contain the search term in their name (case insensitive)
+        for repo in results:
+            assert isinstance(repo, RepositoryData)
+            assert search_term.lower() in repo.name.lower()
+
+    def test_search_repositories_by_name_with_no_matches_returns_empty_list(self):
+        """Test searching with non-matching term returns empty list."""
+        # Arrange
+        client = GitHubRepositoryClient(org_name="python")
+        search_term = "nonexistent-repo-xyz-12345"
+
+        # Act
+        results = client.search_repositories_by_name(search_term)
+
+        # Assert
+        assert isinstance(results, list)
+        assert len(results) == 0
+
+    def test_search_repositories_uses_org_from_environment(self):
+        """Test that search uses organization from environment variable."""
+        # Arrange
+        import os
+        original_org = os.environ.get("GITHUB_ORG")
+        os.environ["GITHUB_ORG"] = "python"
+
+        try:
+            client = GitHubRepositoryClient()  # Should use GITHUB_ORG env var
+            search_term = "cpython"
+
+            # Act
+            results = client.search_repositories_by_name(search_term)
+
+            # Assert
+            assert len(results) > 0
+            assert any(repo.name == "cpython" for repo in results)
+        finally:
+            # Cleanup
+            if original_org:
+                os.environ["GITHUB_ORG"] = original_org
+            else:
+                os.environ.pop("GITHUB_ORG", None)
