@@ -1,0 +1,10 @@
+1|239759 Santiago Negreyra|289494 Ignacio Bergara|305044 Martin Pereira
+2|284125 Alfonsina Carbone|301262 Patricio Visillac|251809 Oriana Castro
+3|301220 Manuel Malvárez|322645 Juan Ruiz|267296 Nicolás Hobbins
+4|282225 Joaquin Aszyn|221369 Juan Pablo Acosta|267025 Agustina Gadea
+5|313588 Juan Diego Vieites|307641 Antony Correa|230657 Felipe Quintana
+6|305773 Shaiel Tito Virgilio|318321 Bruno Rosa|285554 German Gamarra
+7|285340 Romina Silvarredonda|333562 Elena Couste|244030 Jorge Silvarredonda
+8|167674 Anuar Maubrigades|189155 German Caggianese|287184 Martin Gambini
+9|273283 Barboza Pascher Ana Paula|258317 Kunin Hurvich Matías|327943 Coccaro Oberti Santino
+10|307407 Menchaca Giorello Francisco|233627 Nicodella Suárez Mateo|305374 Oliveri López Santiago
