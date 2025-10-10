@@ -2,5 +2,11 @@
 # No external dependencies required for basic CSV parsing
 # Standard library modules used: csv, typing, pathlib
 
+# Environment variable management
+python-dotenv>=1.0.0
+
+# GitHub API integration
+requests>=2.31.0
+
 # Testing dependencies
 pytest>=8.0.0
