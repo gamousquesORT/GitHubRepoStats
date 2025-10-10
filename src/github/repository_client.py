@@ -84,15 +84,12 @@ class GitHubRepositoryClient:
             url=data["html_url"]
         )
 
-    def search_repositories_by_name(self, search_term: str) -> list[RepositoryData]:
+    def get_all_org_repositories(self) -> list[RepositoryData]:
         """
-        Search for repositories in the organization that contain the search term in their name.
-
-        Args:
-            search_term: The term to search for in repository names (case insensitive)
+        Get all repositories from the organization.
 
         Returns:
-            List of RepositoryData objects for repositories matching the search term
+            List of all RepositoryData objects from the organization
 
         Raises:
             ValueError: If organization name is not configured or API request fails
@@ -118,17 +115,16 @@ class GitHubRepositoryClient:
                 if not repos_data:
                     break
 
-                # Filter repositories by search term
+                # Convert all repositories to RepositoryData objects
                 for repo in repos_data:
-                    if search_term.lower() in repo["name"].lower():
-                        all_repos.append(RepositoryData(
-                            name=repo["name"],
-                            full_name=repo["full_name"],
-                            description=repo.get("description"),
-                            stars=repo["stargazers_count"],
-                            forks=repo["forks_count"],
-                            url=repo["html_url"]
-                        ))
+                    all_repos.append(RepositoryData(
+                        name=repo["name"],
+                        full_name=repo["full_name"],
+                        description=repo.get("description"),
+                        stars=repo["stargazers_count"],
+                        forks=repo["forks_count"],
+                        url=repo["html_url"]
+                    ))
 
                 page += 1
 
@@ -140,6 +136,30 @@ class GitHubRepositoryClient:
             raise ValueError(f"Failed to connect to GitHub API: {e}")
 
         return all_repos
+
+    def search_repositories_by_name(self, search_term: str) -> list[RepositoryData]:
+        """
+        Search for repositories in the organization that contain the search term in their name.
+
+        Args:
+            search_term: The term to search for in repository names (case insensitive)
+
+        Returns:
+            List of RepositoryData objects for repositories matching the search term
+
+        Raises:
+            ValueError: If organization name is not configured or API request fails
+        """
+        # Use get_all_org_repositories and filter
+        all_repos = self.get_all_org_repositories()
+
+        # Filter repositories by search term
+        filtered_repos = [
+            repo for repo in all_repos
+            if search_term.lower() in repo.name.lower()
+        ]
+
+        return filtered_repos
 
     def get_all_branches(self, repo_name: str) -> list[str]:
         """
